@@ -1,61 +1,152 @@
--- =========================================
--- TABLE: profiles
--- Stores extended user data linked 1:1 with Supabase auth.users.
--- Includes personal info, onboarding status, interests, and premium details.
--- =========================================
+-- =========================================================
+-- TABLE: public.profiles
+-- ---------------------------------------------------------
+-- Purpose:
+-- Stores extended user profile data (1:1 with auth.users).
+-- This table powers personalization, AI behavior, progress,
+-- and subscription logic in the Lexa app.
+-- =========================================================
+
 CREATE TABLE IF NOT EXISTS public.profiles (
-    id uuid REFERENCES auth.users(id) PRIMARY KEY,
+    -- -----------------------------------------------------
+    -- Primary Key (linked with Supabase auth.users)
+    -- -----------------------------------------------------
+    id UUID PRIMARY KEY 
+        REFERENCES auth.users(id) ON DELETE CASCADE,
+
+    -- -----------------------------------------------------
+    -- Basic User Info
+    -- -----------------------------------------------------
     full_name TEXT,
-    language_level TEXT,
-    interests TEXT[],
-    is_onboarding_completed BOOLEAN DEFAULT FALSE,
+    username TEXT UNIQUE,
+    avatar_url TEXT,
+    bio TEXT ,
+     CONSTRAINT bio_length CHECK(LENGTH(bio)<=30)
+
+    -- -----------------------------------------------------
+    -- Language & Learning Configuration
+    -- -----------------------------------------------------
+    native_language TEXT NOT NULL, -- User's native language (e.g. Hindi)
+    target_language TEXT DEFAULT 'English', -- Language user wants to learn
+
+    language_level TEXT 
+        CHECK (language_level IN ('beginner', 'intermediate', 'advanced')),
+
+    learning_goal TEXT, -- e.g. 'Fluency', 'Interview Prep'
+    daily_goal_minutes INT DEFAULT 10 CHECK (daily_goal_minutes > 0),
+
+    -- -----------------------------------------------------
+    -- User Preferences
+    -- -----------------------------------------------------
+    interests TEXT[], -- e.g. ['tech', 'travel']
+
+    preferred_tone TEXT 
+        DEFAULT 'friendly'
+        CHECK (preferred_tone IN ('formal', 'casual', 'friendly')),
+
+    correction_mode BOOLEAN DEFAULT TRUE, -- Enable grammar correction
+    voice_enabled BOOLEAN DEFAULT FALSE,  -- Voice interaction enabled
+
+    -- -----------------------------------------------------
+    -- Progress & Engagement Tracking
+    -- -----------------------------------------------------
+    xp_points INT DEFAULT 0 CHECK (xp_points >= 0),
+    streak_days INT DEFAULT 0 CHECK (streak_days >= 0),
+    last_active_at TIMESTAMPTZ,
+
+    -- -----------------------------------------------------
+    -- Subscription / Monetization
+    -- -----------------------------------------------------
     is_premium BOOLEAN DEFAULT FALSE,
+
+    premium_plan TEXT 
+        CHECK (premium_plan IN ('monthly', 'yearly')),
+
     premium_expires_at TIMESTAMPTZ,
+
+    -- -----------------------------------------------------
+    -- Onboarding Status
+    -- -----------------------------------------------------
+    is_onboarding_completed BOOLEAN DEFAULT FALSE,
+
+    -- -----------------------------------------------------
+    -- Timestamps
+    -- -----------------------------------------------------
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- =========================================
--- RLS (Row Level Security)
--- Enables row-level access control so users can only interact with their own data.
--- Required for all policies to work.
--- =========================================
+-- =========================================================
+-- INDEXES (Performance Optimization)
+-- Speeds up common queries (important for scaling)
+-- =========================================================
+
+CREATE INDEX IF NOT EXISTS idx_profiles_username 
+ON public.profiles(username);
+
+CREATE INDEX IF NOT EXISTS idx_profiles_premium 
+ON public.profiles(is_premium);
+
+CREATE INDEX IF NOT EXISTS idx_profiles_last_active 
+ON public.profiles(last_active_at);
+
+-- =========================================================
+-- FUNCTION: update_updated_at_column
+-- Automatically updates 'updated_at' on row update
+-- =========================================================
+
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to call function before update
+CREATE TRIGGER trigger_update_profiles_updated_at
+BEFORE UPDATE ON public.profiles
+FOR EACH ROW
+EXECUTE FUNCTION public.update_updated_at_column();
+
+-- =========================================================
+-- ROW LEVEL SECURITY (RLS)
+-- Ensures users can only access their own data
+-- =========================================================
+
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
--- =========================================
+-- ---------------------------------------------------------
 -- POLICY: SELECT
--- Allows users to read only their own profile.
--- Condition: logged-in user ID must match profile ID.
--- =========================================
-CREATE POLICY "Users can read own profile"
+-- Users can read only their own profile
+-- ---------------------------------------------------------
+CREATE POLICY "select_own_profile"
 ON public.profiles
 FOR SELECT
 USING (auth.uid() = id);
 
--- =========================================
+-- ---------------------------------------------------------
 -- POLICY: INSERT
--- Allows users to create only their own profile.
--- Prevents inserting data for another user.
--- =========================================
-CREATE POLICY "Users can insert own profile"
+-- Users can create only their own profile
+-- ---------------------------------------------------------
+CREATE POLICY "insert_own_profile"
 ON public.profiles
 FOR INSERT
 WITH CHECK (auth.uid() = id);
 
--- =========================================
+-- ---------------------------------------------------------
 -- POLICY: UPDATE
--- Allows users to update only their own profile.
--- USING → controls which rows can be updated (before update)
--- WITH CHECK → ensures data remains valid after update (no ownership change)
--- =========================================
-CREATE POLICY "Users can update own profile"
+-- Users can update only their own profile
+-- ---------------------------------------------------------
+CREATE POLICY "update_own_profile"
 ON public.profiles
 FOR UPDATE
 USING (auth.uid() = id)
 WITH CHECK (auth.uid() = id);
 
--- =========================================
--- PERMISSIONS (GRANT)
--- Gives authenticated (logged-in) users basic access.
--- Actual access is still controlled by RLS policies above.
--- =========================================
+-- =========================================================
+-- PERMISSIONS
+-- Grants access to authenticated users (RLS still applies)
+-- =========================================================
+
 GRANT SELECT, INSERT, UPDATE ON public.profiles TO authenticated;
