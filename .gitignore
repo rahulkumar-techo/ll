@@ -8,6 +8,7 @@ node_modules/
 dist/
 web-build/
 expo-env.d.ts
+.vscode
 
 # Native
 .kotlin/
@@ -20,6 +21,7 @@ expo-env.d.ts
 
 # Metro
 .metro-health-check*
+.repair
 
 # debug
 npm-debug.*

@@ -59,8 +59,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     -- -----------------------------------------------------
     is_premium BOOLEAN DEFAULT FALSE,
 
-    premium_plan TEXT 
-        CHECK (premium_plan IN ('monthly', 'yearly')),
+    premium_plan TEXT  
+        CHECK (premium_plan IN ('monthly', 'yearly','free')),
 
     premium_expires_at TIMESTAMPTZ,
 
