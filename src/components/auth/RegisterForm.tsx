@@ -33,7 +33,7 @@ export default function RegisterForm({
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     return (
-        <View className="flex-1">
+        <View>
             <View className={compact ? 'mb-2.5' : 'mb-3'}>
                 <Text className="mb-2 text-sm font-medium text-slate-700">
                     Full name
@@ -153,7 +153,7 @@ export default function RegisterForm({
             </View>
 
             <Pressable
-                className={`mt-auto rounded-2xl bg-blue-600 px-4 ${compact ? 'py-3' : 'py-3.5'}`}
+                className={`mt-5 rounded-2xl bg-blue-600 px-4 ${compact ? 'mb-2 py-3' : 'mb-1 py-3.5'}`}
                 onPress={onSubmit}
             >
                 <Text className="text-center font-semibold text-white">

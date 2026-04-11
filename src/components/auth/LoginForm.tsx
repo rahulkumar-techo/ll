@@ -35,7 +35,7 @@ export default function LoginForm({
     const [rememberMe, setRememberMe] = useState(false);
 
     return (
-        <View className="flex-1">
+        <View>
             <View className={compact ? 'mb-2.5' : 'mb-3'}>
                 <Text className="mb-2 text-sm font-medium text-slate-700">
                     Email
