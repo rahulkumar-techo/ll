@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
     Keyboard,
     KeyboardAvoidingView,
+    KeyboardEvent,
     Platform,
     Pressable,
     ScrollView,
@@ -10,6 +11,7 @@ import {
     useWindowDimensions,
     View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { logo } from '@/assets/images';
 
@@ -42,28 +44,52 @@ export default function AuthScreen({
     setStep,
 }: AuthScreenProps) {
     const { height } = useWindowDimensions();
+    const insets = useSafeAreaInsets();
     const isCompactScreen = height < 760;
     // Keep the hero intentionally short so the auth card gets more usable height.
     const heroHeight = isCompactScreen
         ? Math.max(96, Math.min(height * 0.14, 126))
         : Math.max(152, Math.min(height * 0.21, 196));
     const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
     const [otp, setOtp] = useState(['', '', '', '']);
     const otpRefs = useRef<(TextInput | null)[]>([]);
 
     useEffect(() => {
-        const showSubscription = Keyboard.addListener('keyboardDidShow', () => {
+        const handleKeyboardShow = (event: KeyboardEvent) => {
             setIsKeyboardVisible(true);
-        });
-        const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+            setKeyboardHeight(event.endCoordinates.height);
+        };
+
+        const handleKeyboardHide = () => {
             setIsKeyboardVisible(false);
-        });
+            setKeyboardHeight(0);
+        };
+
+        const showEvent =
+            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+        const hideEvent =
+            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+        const showSubscription = Keyboard.addListener(showEvent, handleKeyboardShow);
+        const hideSubscription = Keyboard.addListener(hideEvent, handleKeyboardHide);
 
         return () => {
             showSubscription.remove();
             hideSubscription.remove();
         };
     }, []);
+
+    const closedBottomPadding = isCompactScreen ? 16 : 24;
+    const keyboardBottomPadding =
+        Platform.OS === 'ios'
+            ? Math.max(
+                  24,
+                  keyboardHeight - insets.bottom + (isCompactScreen ? 20 : 28)
+              )
+            : isCompactScreen
+              ? 20
+              : 28;
 
     const registerForm = useAuthForm<RegisterSchemaType>({
         initialValues: registerInitialValues,
@@ -121,8 +147,8 @@ export default function AuthScreen({
     return (
         <KeyboardAvoidingView
             style={{ flex: 1 }}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 18}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
         >
             <View className="flex-1 justify-end bg-black">
                 <View className="absolute inset-0 bg-[#0b0f1a]" />
@@ -143,16 +169,14 @@ export default function AuthScreen({
                     <ScrollView
                         style={{ flex: 1 }}
                         contentContainerStyle={{
+                            flexGrow: 1,
                             paddingHorizontal: 24,
                             paddingTop: isCompactScreen ? 16 : 24,
-                            // Extra bottom space keeps submit buttons visible above the keyboard.
                             paddingBottom: isKeyboardVisible
-                                ? 168
-                                : isCompactScreen
-                                  ? 18
-                                  : 28,
+                                ? keyboardBottomPadding
+                                : closedBottomPadding + insets.bottom,
                         }}
-                        keyboardShouldPersistTaps="always"
+                        keyboardShouldPersistTaps="handled"
                         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                         showsVerticalScrollIndicator={false}
                         automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}

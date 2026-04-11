@@ -11,17 +11,15 @@ export default function IntroScreen() {
   const [step, setStep] = useState<'main' | 'forgot' | 'otp'>('main');
 
   return (
-     <SafeAreaView style={{ flex: 1 }}>
-
-    <View style={{ flex: 1 }}>
-      <AuthScreen
-        tab={tab}
-        setTab={setTab}
-        step={step}
-        setStep={setStep}
-      />
-    </View>
-     </SafeAreaView>
-
+    <SafeAreaView style={{ flex: 1 }} edges={['top', 'right', 'bottom', 'left']}>
+      <View style={{ flex: 1 }}>
+        <AuthScreen
+          tab={tab}
+          setTab={setTab}
+          step={step}
+          setStep={setStep}
+        />
+      </View>
+    </SafeAreaView>
   );
 }
