@@ -1,12 +1,15 @@
 export {
     loginInitialValues,
+    loginFieldSchema,
     loginSchema,
     registerInitialValues,
+    registerFieldSchema,
     registerSchema,
-    validateLoginField,
     validateLoginForm,
-    validateRegisterField,
+    validateLoginFieldValue,
+    validateConfirmPasswordValue,
     validateRegisterForm,
+    validateRegisterFieldValue,
 } from '@/components/auth/validation/auth.validation';
 
 export type {
