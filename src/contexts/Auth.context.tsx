@@ -9,6 +9,7 @@ export type Profile = {
   is_premium: boolean
   premium_plan: 'monthly' | 'yearly' | null
   premium_expires_at: string | null
+  is_onboarding_completed:boolean
 }
 
 type AuthContextType = {

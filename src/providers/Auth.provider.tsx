@@ -10,7 +10,6 @@ const AuthProvider = ({ children }: PropsWithChildren) => {
     const [loading, setLoading] = useState(true)
 
     const premiumExpiresAt = profile?.premium_expires_at ?? null
-    const premiumPlan = profile?.premium_plan ?? 'free'
 
     const isPremium =
         !!profile?.is_premium &&
@@ -22,42 +21,79 @@ const AuthProvider = ({ children }: PropsWithChildren) => {
             setProfile(null)
             return;
         }
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', s.user.id)
-            .maybeSingle();
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', s.user.id)
+                .maybeSingle();
 
-        if (error) {
-            console.error(error)
-            return
+            if (error) {
+                console.error('Failed to load profile:', error)
+                setProfile(null)
+                return
+            }
+
+            setProfile(data ?? null)
+        } catch (error) {
+            console.error('Unexpected profile load error:', error)
+            setProfile(null)
         }
-
-        setProfile(error ? null : data)
     }
 
     useEffect(() => {
+        let isMounted = true;
 
         const init = async () => {
-            setLoading(true);
-            const { data } = await supabase?.auth?.getSession();
-            const initSession = data?.session ?? null;
-            setSession(initSession);
-            await loadProfile(initSession);
-            setLoading(false);
+            try {
+                if (isMounted) {
+                    setLoading(true);
+                }
+
+                const { data, error } = await supabase.auth.getSession();
+
+                if (error) {
+                    console.error('Failed to restore session:', error)
+                }
+
+                const initSession = data?.session ?? null;
+
+                if (isMounted) {
+                    setSession(initSession);
+                }
+
+                await loadProfile(initSession);
+            } catch (error) {
+                console.error('Unexpected session init error:', error)
+                if (isMounted) {
+                    setSession(null);
+                    setProfile(null);
+                }
+            } finally {
+                if (isMounted) {
+                    setLoading(false);
+                }
+            }
         };
+
         init();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
-            setLoading(true);
-            setSession(newSession);
-            loadProfile(newSession).finally(() => {
-                setLoading(false)
+            if (isMounted) {
+                setSession(newSession);
+            }
 
+            loadProfile(newSession).finally(() => {
+                if (isMounted) {
+                    setLoading(false)
+                }
             })
         })
 
-        return () => subscription.unsubscribe()
+        return () => {
+            isMounted = false;
+            subscription.unsubscribe()
+        }
 
     }, []);
 
