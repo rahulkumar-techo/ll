@@ -2,19 +2,22 @@
   "expo": {
     "name": "ll",
     "slug": "ll",
+    "owner": "mrrhl02",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
     "scheme": "ll",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.rahul.ll"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/logo.png"
       },
+      "package": "com.rahul.ll",
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "pan"
     },
@@ -35,11 +38,22 @@
           }
         }
       ],
-      "expo-secure-store"
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.1029984074129-v15fc3en87ovuf71b6rsvaonqeisoedr"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "67db8db2-30bc-41c8-b3b0-8063eb732ed3"
+      }
     }
   }
 }

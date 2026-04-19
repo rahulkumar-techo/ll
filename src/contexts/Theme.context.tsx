@@ -2,8 +2,6 @@ import { createContext, useContext, useState } from 'react'
 import { useColorScheme } from 'react-native'
 import { lightTheme, darkTheme } from '@/constants/theme.constant'
 
-type ThemeType = typeof lightTheme
-
 const ThemeContext = createContext({
   theme: lightTheme,
   toggleTheme: () => {}

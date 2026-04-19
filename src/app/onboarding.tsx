@@ -2,6 +2,7 @@ import React, { useState } from "react";
 
 import type { OnboardingStep } from "@/constants";
 import OnboardingScreen from "@/screens/OnboardingScreen";
+import { useRouter } from "expo-router";
 
 const clampStep = (value: number): OnboardingStep =>
   Math.max(0, Math.min(value, 4)) as OnboardingStep;
@@ -16,6 +17,8 @@ export default function Onboarding() {
 
   const nextStep = () => setStep((prev) => clampStep(prev + 1));
   const prevStep = () => setStep((prev) => clampStep(prev - 1));
+  const router = useRouter();
+
 
   const completeOnboarding = async () => {
     console.log({
@@ -25,6 +28,8 @@ export default function Onboarding() {
       selectedInterests,
       selectedPaywall,
     });
+    router.push("/")
+
   };
 
   return (

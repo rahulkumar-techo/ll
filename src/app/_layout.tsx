@@ -17,37 +17,37 @@ function RootLayout_Nav() {
   const isIntro = currentRoute === "Intro";
   const isOnboarding = currentRoute === "onboarding";
 
-  // useEffect(() => {
-  //   if (loading) return;
+  useEffect(() => {
+    if (loading) return;
 
-  //   // 🔐 Not logged in
-  //   if (!session) {
-  //     if (!isIntro) {
-  //       router.replace("/Intro");
-  //     }
-  //     return;
-  //   }
+    // 🔐 Not logged in
+    if (!session) {
+      if (!isIntro) {
+        router.replace("/Intro");
+      }
+      return;
+    }
 
-  //   // 👤 Logged in but onboarding not done
-  //   if (!profile?.is_onboarding_completed) {
-  //     if (!isOnboarding) {
-  //       router.replace("/onboarding");
-  //     }
-  //     return;
-  //   }
+    // 👤 Logged in but onboarding not done
+    if (!profile?.is_onboarding_completed) {
+      if (!isOnboarding) {
+        router.replace("/onboarding");
+      }
+      return;
+    }
 
-  //   // ✅ Fully onboarded user
-  //   if (isIntro || isOnboarding) {
-  //     router.replace("/");
-  //   }
-  // }, [loading, session, profile?.is_onboarding_completed, isIntro, isOnboarding]);
+    // ✅ Fully onboarded user
+    if (isIntro || isOnboarding) {
+      router.replace("/");
+    }
+  }, [loading, session, profile?.is_onboarding_completed, isIntro, isOnboarding, router]);
 
-useEffect(() => {
-  if (loading) return;
+// useEffect(() => {
+//   if (loading) return;
 
-  // 🔥 FORCE ONBOARDING
-  router.replace("/onboarding");
-}, [loading]);
+//   // 🔥 FORCE ONBOARDING
+//   router.replace("/onboarding");
+// }, [loading]);
 
   if (loading) {
     return (
@@ -71,7 +71,7 @@ useEffect(() => {
                 }
               }
             >
-              <Stack.Screen name="index" />
+              <Stack.Screen name="(tabs)" />
               <Stack.Screen name="Intro" />
               <Stack.Screen name="onboarding" />
             </Stack>

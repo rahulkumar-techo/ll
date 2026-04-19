@@ -1,264 +1,223 @@
-import { useEffect, useRef, useState } from 'react';
+// Description: Clean Auth screen with only Google Sign-In (Expo + Supabase)
+
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import * as AuthSession from 'expo-auth-session';
+import * as WebBrowser from 'expo-web-browser';
+import { useEffect, useState } from 'react';
 import {
-    Keyboard,
-    Platform,
-    Pressable,
-    Text,
-    TextInput,
-    useWindowDimensions,
-    View,
+  Alert,
+  Keyboard,
+  Platform,
+  Pressable,
+  Text,
+  useWindowDimensions,
+  View,
 } from 'react-native';
+import { MaterialDesignIcons } from '@react-native-vector-icons/material-design-icons';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { logo } from '@/assets/images';
-
+import { supabase } from '@/utils/supabase';
 import HeroSection from './Hero';
-import LoginForm from './LoginForm';
-import RegisterForm from './RegisterForm';
 
-type AuthScreenProps = {
-    tab: 'login' | 'register';
-    setTab: (tab: 'login' | 'register') => void;
-    step: 'main' | 'forgot' | 'otp';
-    setStep: (step: 'main' | 'forgot' | 'otp') => void;
-};
+WebBrowser.maybeCompleteAuthSession();
 
-export default function AuthScreen({
-    tab,
-    setTab,
-    step,
-    setStep,
-}: AuthScreenProps) {
-    const { height } = useWindowDimensions();
-    const insets = useSafeAreaInsets();
-    const isCompactScreen = height < 760;
-    const heroHeight = isCompactScreen
-        ? Math.max(96, Math.min(height * 0.14, 126))
-        : Math.max(152, Math.min(height * 0.21, 196));
-    const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-    const [otp, setOtp] = useState(['', '', '', '']);
-    const otpRefs = useRef<(TextInput | null)[]>([]);
+const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 
-    useEffect(() => {
-        const showEvent =
-            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-        const hideEvent =
-            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+if (Platform.OS !== 'web') {
+  GoogleSignin.configure({
+    webClientId: googleWebClientId,
+    iosClientId: googleIosClientId,
+  });
+}
 
-        const showSubscription = Keyboard.addListener(showEvent, () => {
-            setIsKeyboardVisible(true);
-        });
-        const hideSubscription = Keyboard.addListener(hideEvent, () => {
-            setIsKeyboardVisible(false);
-        });
+async function signInWithGoogle() {
+  if (Platform.OS === 'web') {
+    const redirectUrl = AuthSession.makeRedirectUri({
+      scheme: 'll',
+    });
 
-        return () => {
-            showSubscription.remove();
-            hideSubscription.remove();
-        };
-    }, []);
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: redirectUrl,
+        skipBrowserRedirect: true,
+      },
+    });
 
-    const handleOtpChange = (index: number, value: string) => {
-        const sanitizedValue = value.replace(/[^0-9]/g, '');
-        const digit = sanitizedValue.slice(-1);
-        const nextOtp = [...otp];
-        nextOtp[index] = digit;
-        setOtp(nextOtp);
+    if (error) {
+      throw error;
+    }
 
-        if (digit && index < otpRefs.current.length - 1) {
-            otpRefs.current[index + 1]?.focus();
-        }
-    };
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
 
-    const handleOtpKeyPress = (index: number, key: string) => {
-        if (key !== 'Backspace') {
-            return;
-        }
+    if (result.type !== 'success') {
+      return;
+    }
 
-        if (otp[index]) {
-            const nextOtp = [...otp];
-            nextOtp[index] = '';
-            setOtp(nextOtp);
-            return;
-        }
+    const url = new URL(result.url);
+    const code = url.searchParams.get('code');
+    const authError =
+      url.searchParams.get('error_description') ?? url.searchParams.get('error');
 
-        if (index > 0) {
-            otpRefs.current[index - 1]?.focus();
-            const nextOtp = [...otp];
-            nextOtp[index - 1] = '';
-            setOtp(nextOtp);
-        }
-    };
+    if (authError) {
+      throw new Error(authError);
+    }
 
-    return (
-        <View className="flex-1 justify-end bg-black">
-            <View className="absolute inset-0 bg-[#0b0f1a]" />
-            <View
-                className="absolute inset-x-0 top-0 bg-[#111827]"
-                style={{ height: isKeyboardVisible ? 0 : heroHeight + 56 }}
-            />
+    if (!code) {
+      throw new Error(`No auth code returned from Google OAuth callback: ${result.url}`);
+    }
 
-            <HeroSection
-                isKeyboardVisible={isKeyboardVisible}
-                isCompactScreen={isCompactScreen}
-                heroHeight={heroHeight}
-                logo={logo}
-            />
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
-            <View
-                className={`flex-1 bg-white ${isKeyboardVisible ? 'rounded-t-none' : 'rounded-t-[32px]'}`}
-            >
-                <KeyboardAwareScrollView
-                    style={{ flex: 1 }}
-                    contentContainerStyle={{
-                        flexGrow: 1,
-                        paddingHorizontal: 24,
-                        paddingTop: isCompactScreen ? 16 : 24,
-                        paddingBottom: (isCompactScreen ? 20 : 28) + insets.bottom,
-                    }}
-                    enableOnAndroid
-                    extraHeight={Platform.OS === 'ios' ? 120 : 88}
-                    extraScrollHeight={Platform.OS === 'ios' ? 24 : 12}
-                    keyboardOpeningTime={0}
-                    keyboardShouldPersistTaps="handled"
-                    showsVerticalScrollIndicator={false}
-                    bounces={false}
-                >
-                    {step === 'main' && (
-                        <View>
-                            <View
-                                className={`flex-row rounded-2xl bg-slate-100 p-1 ${
-                                    isCompactScreen ? 'mb-4' : 'mb-6'
-                                }`}
-                            >
-                                <Pressable
-                                    onPress={() => setTab('login')}
-                                    className={`flex-1 rounded-2xl px-4 ${
-                                        tab === 'login' ? 'bg-white' : ''
-                                    } ${isCompactScreen ? 'py-2.5' : 'py-3'}`}
-                                >
-                                    <Text
-                                        className={`text-center text-sm ${
-                                            tab === 'login'
-                                                ? 'font-semibold text-slate-950'
-                                                : 'text-slate-500'
-                                        }`}
-                                    >
-                                        Log In
-                                    </Text>
-                                </Pressable>
+    if (exchangeError) {
+      throw exchangeError;
+    }
 
-                                <Pressable
-                                    onPress={() => setTab('register')}
-                                    className={`flex-1 rounded-2xl px-4 ${
-                                        tab === 'register' ? 'bg-white' : ''
-                                    } ${isCompactScreen ? 'py-2.5' : 'py-3'}`}
-                                >
-                                    <Text
-                                        className={`text-center text-sm ${
-                                            tab === 'register'
-                                                ? 'font-semibold text-slate-950'
-                                                : 'text-slate-500'
-                                        }`}
-                                    >
-                                        Sign Up
-                                    </Text>
-                                </Pressable>
-                            </View>
+    return;
+  }
 
-                            {tab === 'login' ? (
-                                <LoginForm
-                                    onSubmit={(values) => {
-                                        console.log('Login data:', values);
-                                    }}
-                                    onForgotPassword={() => setStep('forgot')}
-                                    compact={isCompactScreen}
-                                />
-                            ) : (
-                                <RegisterForm
-                                    onSubmit={(values) => {
-                                        console.log('Register data:', values);
-                                    }}
-                                    compact={isCompactScreen}
-                                />
-                            )}
-                        </View>
-                    )}
+  if (!googleWebClientId) {
+    throw new Error('Missing EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID.');
+  }
 
-                    {step === 'forgot' && (
-                        <View className="pt-2">
-                            <Text className="mb-2 text-2xl font-semibold text-slate-950">
-                                Reset password
-                            </Text>
-                            <Text className="mb-5 text-sm leading-6 text-slate-500">
-                                Enter your email and we&apos;ll send you a one-time
-                                verification code.
-                            </Text>
-                            <TextInput
-                                placeholder="you@example.com"
-                                placeholderTextColor="#94a3b8"
-                                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-[15px] text-slate-900"
-                            />
+  if (Platform.OS === 'android') {
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+  }
 
-                            <Pressable
-                                onPress={() => setStep('otp')}
-                                className="mt-5 rounded-2xl bg-slate-950 px-4 py-4"
-                            >
-                                <Text className="text-center font-semibold text-white">
-                                    Send OTP
-                                </Text>
-                            </Pressable>
-                        </View>
-                    )}
+  const result = await GoogleSignin.signIn();
 
-                    {step === 'otp' && (
-                        <View className="pt-2">
-                            <Text className="mb-2 text-2xl font-semibold text-slate-950">
-                                Verify code
-                            </Text>
-                            <Text className="mb-5 text-sm leading-6 text-slate-500">
-                                Enter the 4-digit code sent to your email.
-                            </Text>
+  if (result.type !== 'success') {
+    return;
+  }
 
-                            <View className="mb-6 flex-row justify-between">
-                                {[...Array(4)].map((_, index) => (
-                                    <TextInput
-                                        key={index}
-                                        ref={(ref) => {
-                                            otpRefs.current[index] = ref;
-                                        }}
-                                        maxLength={1}
-                                        keyboardType="number-pad"
-                                        value={otp[index]}
-                                        onChangeText={(value) =>
-                                            handleOtpChange(index, value)
-                                        }
-                                        onKeyPress={({ nativeEvent }) =>
-                                            handleOtpKeyPress(index, nativeEvent.key)
-                                        }
-                                        textContentType="oneTimeCode"
-                                        className="h-14 w-14 rounded-2xl border border-slate-200 bg-slate-50 text-center text-lg font-semibold text-slate-950"
-                                    />
-                                ))}
-                            </View>
+  const tokens = await GoogleSignin.getTokens();
+  const idToken = tokens.idToken ?? result.data.idToken;
 
-                            <Pressable
-                                onPress={() => setStep('main')}
-                                className="mb-3 rounded-2xl bg-slate-950 px-4 py-4"
-                            >
-                                <Text className="text-center font-semibold text-white">
-                                    Verify
-                                </Text>
-                            </Pressable>
+  if (!idToken) {
+    throw new Error('Google Sign-In did not return an ID token.');
+  }
 
-                            <Text className="text-center text-sm text-slate-400">
-                                Resend OTP
-                            </Text>
-                        </View>
-                    )}
-                </KeyboardAwareScrollView>
-            </View>
-        </View>
+  const { error } = await supabase.auth.signInWithIdToken({
+    provider: 'google',
+    token: idToken,
+    access_token: tokens.accessToken,
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
+export default function AuthScreen() {
+  const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
+  const isCompactScreen = height < 760;
+  const heroHeight = isCompactScreen
+    ? Math.max(96, Math.min(height * 0.14, 126))
+    : Math.max(152, Math.min(height * 0.21, 196));
+
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const showEvent =
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent =
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, () =>
+      setIsKeyboardVisible(true)
     );
+    const hideSub = Keyboard.addListener(hideEvent, () =>
+      setIsKeyboardVisible(false)
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const showAuthError = (error: unknown) => {
+    const message =
+      error instanceof Error ? error.message : 'Something went wrong.';
+    Alert.alert('Google Sign-In failed', message);
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      setIsSubmitting(true);
+      await signInWithGoogle();
+    } catch (error) {
+      showAuthError(error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <View className="flex-1 justify-end bg-black">
+      <View className="absolute inset-0 bg-[#0b0f1a]" />
+      <View
+        className="absolute inset-x-0 top-0 bg-[#111827]"
+        style={{ height: isKeyboardVisible ? 0 : heroHeight + 56 }}
+      />
+
+      <HeroSection
+        isKeyboardVisible={isKeyboardVisible}
+        isCompactScreen={isCompactScreen}
+        heroHeight={heroHeight}
+        logo={logo}
+      />
+
+      <View
+        className={`flex-1 bg-white ${
+          isKeyboardVisible ? 'rounded-t-none' : 'rounded-t-[32px]'
+        }`}
+      >
+        <KeyboardAwareScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingHorizontal: 24,
+            paddingTop: isCompactScreen ? 16 : 24,
+            paddingBottom: (isCompactScreen ? 20 : 28) + insets.bottom,
+            justifyContent: 'center',
+          }}
+          enableOnAndroid
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View>
+            <Text className="mb-2 text-2xl font-semibold text-slate-950 text-center">
+              Welcome
+            </Text>
+
+            <Text className="mb-6 text-sm text-slate-500 text-center">
+              Continue with Google to get started
+            </Text>
+
+            <Pressable
+              onPress={handleGoogleLogin}
+              disabled={isSubmitting}
+              className="flex-row items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3.5"
+            >
+              <MaterialDesignIcons
+                name="google"
+                size={20}
+                color="#ea4335"
+              />
+              <Text className="ml-3 font-medium text-slate-700">
+                {isSubmitting ? 'Signing in...' : 'Continue with Google'}
+              </Text>
+            </Pressable>
+          </View>
+        </KeyboardAwareScrollView>
+      </View>
+    </View>
+  );
 }
